@@ -1,0 +1,171 @@
+import math
+import tkinter as tk
+import numpy as np
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+
+class DoublePendulum:
+    def __init__(self,  length1, length2, angle1, angle2, p1, p2, gravity,m1,m2,dt):
+        
+        global root
+        root= tk.Tk()
+        root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        # Create a TKinter window
+        self.WINDOWSIZE=700
+
+        self.canvas = tk.Canvas(root, width=self.WINDOWSIZE, height=self.WINDOWSIZE)
+        self.canvas.pack()
+        
+        color="red"
+        dt=0.01
+        x=self.WINDOWSIZE/2
+        y=self.WINDOWSIZE/2
+        # Set initial position and velocity of pendulum
+        self.origin = (x, y)
+        self.angle1 = math.radians(angle1)
+        self.angle2 = math.radians(angle2)
+        self.p1 = math.radians(p1)  #why radians ?
+        self.p2 = math.radians(p2)
+        self.length1 = length1
+        self.length2 = length2
+        self.gravity = gravity
+        self.m1 = m1
+        self.m2 = m2
+        self.dt=dt
+        self.E=[]
+        
+        # Calculate initial position of pendulum
+        self.position1 = (x + length1 * math.sin(self.angle1), y + length1 * math.cos(self.angle1))
+        self.position2 = (self.position1[0] + length2 * math.sin(self.angle2), self.position1[1] + length2 * math.cos(self.angle2))
+        
+        # Draw the pendulum arms and bobs
+        self.arm1 = self.canvas.create_line(self.origin[0], self.origin[1], 
+                                            self.position1[0], self.position1[1], 
+                                            width=3,fill=color)
+        self.arm2 = self.canvas.create_line(self.position1[0], self.position1[1], 
+                                            self.position2[0], self.position2[1], 
+                                            width=3,fill=color)
+        self.bob1 = self.canvas.create_oval(self.position1[0]+25, self.position1[1]+25, 
+                                             self.position1[0]-25, self.position1[1]-25,fill=color)
+        self.bob2 = self.canvas.create_oval(self.position2[0]+15, self.position2[1]+15, 
+                                             self.position2[0]-15, self.position2[1]-15,fill=color)
+        
+        
+    
+    def animate(self):
+        # Calculate the new positions of the pendulum arms and bobs
+        # based on the current positions, velocities, and gravity
+        current_state = [self.angle1, self.p1, self.angle2, self.p2]
+        #F_A is just here to make the code simpler using those variables
+        F_A = lambda y1: [(y1[1] * y1[3] * math.sin(y1[0] - y1[2])) / (self.length1 * self.length2 * (self.m1 + self.m2 * math.sin(y1[0] - y1[2])**2)),
+                (1 / (2 * self.length1**2 * self.length2**2 * (self.m1 + self.m2 * math.sin(y1[0] - y1[2])**2)**2)) * ((y1[1]**2 * self.m2 * self.length2**2) - (2 * y1[1] * y1[3] * self.m2 * self.length1 * self.length2 * math.cos(y1[0] - y1[2])) + (y1[3]**2 * (self.m1 + self.m2) * self.length1**2)) * math.sin(2 * (y1[0] - y1[2]))]
+        A_1,A_2=F_A(current_state)
+        
+        F = lambda y2: [(y2[1] * self.length2 - y2[3] * self.length1 * math.cos(y2[0] - y2[2])) / (self.length1**2 * self.length2 * (self.m1 + self.m2 * math.sin(y2[0] - y2[2])**2)),
+                -((self.m1 + self.m2) * self.gravity * self.length1 * math.sin(y2[0])) - A_1 + A_2,
+                (y2[3] * (self.m1 + self.m2) * self.length1 - y2[1] * self.m2 * self.length2 * math.cos(y2[0] - y2[2])) / (self.m2 * self.length1 * self.length2**2 * (self.m1 + self.m2 * math.sin(y2[0] - y2[2])**2)),
+                -(self.m2 * self.gravity * self.length2 * math.sin(y2[2])) + A_1 - A_2]
+        
+        Y1 = [self.dt * x for x in F(current_state)]
+        A_1,A_2=F_A(np.array(current_state)+np.array([0.5 * f_i for f_i in Y1]))
+        Y2=[self.dt * x for x in F(np.array(current_state)+np.array([0.5 * f_i for f_i in Y1]))]
+        A_1,A_2=F_A(np.array(current_state)+np.array([0.5 * f_i for f_i in Y2]))
+        Y3=[self.dt * x for x in F(np.array(current_state)+np.array([0.5 * f_i for f_i in Y2]))]
+        A_1,A_2=F_A(np.array(current_state)+np.array(Y3))
+        Y4=[self.dt * x for x in F(np.array(current_state)+(Y3))]
+        Y=(np.array(Y1)+np.array([2*x for x in Y2])+np.array([2*x for x in Y3])+np.array(Y4))
+        [self.angle1, self.p1, self.angle2, self.p2] = np.array(current_state) + np.array([(1/6)*x for x in Y])
+        
+        self.position1 = (self.origin[0] + self.length1 * math.sin(self.angle1), self.origin[1] + self.length1 * math.cos(self.angle1))
+        self.position2 = (self.position1[0] + self.length2 * math.sin(self.angle2),self.position1[1] + self.length2 * math.cos(self.angle2))
+
+        
+        # Update the positions of the pendulum arms and bobs
+        self.canvas.coords(self.arm1, self.origin[0], self.origin[1], self.position1[0], self.position1[1])
+        self.canvas.coords(self.arm2, self.position1[0], self.position1[1], self.position2[0], self.position2[1])
+        self.canvas.coords(self.bob1, self.position1[0]-25, self.position1[1]-25, self.position1[0]+25, self.position1[1]+25)
+        self.canvas.coords(self.bob2, self.position2[0]-25, self.position2[1]-25, self.position2[0]+25, self.position2[1]+25)
+        
+
+        self.calculate_energy()
+        # Call the animate function again after a short delay
+        self.canvas.after(1, self.animate)
+        
+        
+
+        
+
+    def calculate_energy(self):
+        #the calculus necessary to plot the energy in real time
+        
+        # Calculate the y positions 
+        y1 = self.position1[1]
+        y2 = self.position2[1]
+        
+        #calculate omegas, the angles derivative
+        current_state = [self.angle1, self.p1, self.angle2, self.p2]
+        F = lambda y2: [(y2[1] * self.length2 - y2[3] * self.length1 * math.cos(y2[0] - y2[2])) / (self.length1**2 * self.length2 * (self.m1 + self.m2 * math.sin(y2[0] - y2[2])**2)),
+                (y2[3] * (self.m1 + self.m2) * self.length1 - y2[1] * self.m2 * self.length2 * math.cos(y2[0] - y2[2])) / (self.m2 * self.length1 * self.length2**2 * (self.m1 + self.m2 * math.sin(y2[0] - y2[2])**2))]
+        [omega1,omega2]=F(current_state)
+        
+        #calculate velocities of the masses
+        vx1 = self.length1 * omega1 * np.cos(self.angle1)
+        vy1 = self.length1 * omega1 * np.sin(self.angle1)
+        vx2 = vx1 + self.length2 * omega2 * np.cos(self.angle2)
+        vy2 = vy1 + self.length2 * omega2 * np.sin(self.angle2)
+        
+        # Calculate the kinetic energy of each mass
+        K1 = 0.5 * self.m1 * (vx1**2 + vy1**2)
+        K2 = 0.5 * self.m2 * (vx2**2 + vy2**2)
+        
+        # Calculate the potential energy of each mass
+        U1 = self.m1 * self.gravity * y1
+        U2 = self.m2 * self.gravity * y2
+        
+        # Add the kinetic and potential energy for each mass to get the total energy
+        E = K1 + K2 + U1 + U2
+        
+        #add the calculated energy
+        self.E.append(E)
+
+    
+    def on_closing(self):
+        # Set the return value to 1
+        root.return_value = self.E
+        # Destroy the main window
+        root.destroy()
+
+    def run(self):
+        
+        
+
+        # Create a DoublePendulum object and start the animation
+        colors = ["red",'blue','yellow',"purple",'brown','pink',"green"]
+
+
+        #make the prog return self.E on closing
+
+        # Start the main loop of TKinter
+
+        self.animate()
+        root.mainloop()
+        return root.return_value
+
+
+
+DoublePendulum=DoublePendulum(150, 150, 100, 250, 10, -5, 9.81, 10, 10, 0.05)
+E=DoublePendulum.run()
+# Define the time array
+dt=0.05
+t = [i*dt for i in range(len(E))]
+
+# Plot the energy as a function of time
+plt.plot(t, E)
+
+# Set the plot title and axis labels
+plt.title('Energy as a function of time')
+plt.xlabel('Time (s)')
+plt.ylabel('Energy (J)')
+
+# Show the plot
+plt.show()
