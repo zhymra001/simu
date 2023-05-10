@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.fftpack import fft, ifft, fftfreq
+from scipy.fftpack import fft, ifft, fftfreq, fftshift, ifftshift
 import matplotlib.pyplot as plt
 import math
 
@@ -9,8 +9,9 @@ L = 50 # Length of domain
 N = 256  # Number of grid points
 dt=0.0004 #Timestep
 x = np.linspace(0,50,N)    # Spatial grid
-dx=L/N
-k = 2*np.pi*fftfreq(N, d=dx) # wavenumbers
+#dx=L/N
+#k = fftshift(fftfreq(N, dx))
+k = np.linspace(-int(N/2),int(N/2)-1,N) # wavenumbers
 # Define the parameters
 c1 = 0.75
 a1 = 0.33
@@ -19,15 +20,19 @@ a2 = 0.65
 
 # Compute the initial condition
 u_initial = (c1 / 2) * np.power(np.cosh(math.sqrt(c1)/2 * (x - a1*L)), -2) \
-            + (c2 / 2) * np.power(np.cosh(math.sqrt(c2)/2 * (x - a2*L)), -2)
+             + (c2 / 2) * np.power(np.cosh(math.sqrt(c2)/2 * (x - a2*L)), -2)
          
 u=u_initial
-for i in range(10000):
-    u_hat=fft(u)
+t=75 #temps en secondes
+etapes=int(t/dt)
+for i in range(etapes):
+    u_hat=fftshift(fft(u))
     g_hat = np.exp(1j * ((2*np.pi/L)*k)**3 * dt) * u_hat
-    g = ifft(g_hat).real
-    dg2dx = (ifft(1j * (2*np.pi/L) * k * fft(g**2))).real
+    g = ifft(ifftshift(g_hat)).real
+    dg2dx = ifft(ifftshift(1j * (2*np.pi/L) * k * fftshift(fft(g**2)))).real
     u = g - 3 * dg2dx * dt #Euler 1st order
+    if (i%int((etapes/10))==0):
+        print(int(i/(etapes/10)),'...')#to print a kindo loading bar
     
     
     
@@ -35,5 +40,7 @@ plt.plot(x,u)
 plt.show()            
 
 
-"Questions : -k est normal ? -prq ca bouge pas ? - prq np.real ? - Euler 1st order sufficient ? - How is it made to be periodic ?"
 
+
+
+"Questions : - prq np.real ? - Euler 1st order sufficient ? - How is it made to be periodic ?"
