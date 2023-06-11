@@ -3,44 +3,124 @@ from scipy.fftpack import fft, ifft, fftfreq, fftshift, ifftshift
 import matplotlib.pyplot as plt
 import math
 
-
 # Set up parameters and initial condition
-L = 50 # Length of domain
+L = 50  # Length of domain
 N = 256  # Number of grid points
-dt=0.0004 #Timestep
-x = np.linspace(0,50,N)    # Spatial grid
-#dx=L/N
-#k = fftshift(fftfreq(N, dx))
-k = np.linspace(-int(N/2),int(N/2)-1,N) # wavenumbers
-# Define the parameters
+dt = 0.004  # Timestep
+x = np.linspace(0, L, N)  # Spatial grid
+k = np.linspace(-int(N / 2), int(N / 2) - 1, N)  # wavenumbers
+
+# Define the parameters for the two solitons
 c1 = 0.75
 a1 = 0.33
 c2 = 0.4
 a2 = 0.65
 
-# Compute the initial condition
-u_initial = (c1 / 2) * np.power(np.cosh(math.sqrt(c1)/2 * (x - a1*L)), -2) \
-             + (c2 / 2) * np.power(np.cosh(math.sqrt(c2)/2 * (x - a2*L)), -2)
-         
-u=u_initial
-t=75 #temps en secondes
-etapes=int(t/dt)
+
+# Compute the linear combination of the analytical solutions
+u_initial = (
+    (c1 / 2)
+    * np.power(np.cosh(math.sqrt(c1) / 2 * (x - a1 * L)), -2)
+    + (c2 / 2)
+    * np.power(np.cosh(math.sqrt(c2) / 2 * (x - a2 * L)), -2)
+)
+
+u = u_initial
+t = 75  # Time in seconds
+etapes = int(t / dt)
+
+# Initialize arrays to store numerical and analytical solutions
+numerical_solution = np.zeros((etapes, N))
+analytical_solution = np.zeros((etapes, N))
+
+# Time integration using Euler method
 for i in range(etapes):
-    u_hat=fftshift(fft(u))
-    g_hat = np.exp(1j * ((2*np.pi/L)*k)**3 * dt) * u_hat
+    u_hat = fftshift(fft(u))
+    g_hat = np.exp(1j * ((2 * np.pi / L) * k) ** 3 * dt) * u_hat
     g = ifft(ifftshift(g_hat)).real
-    dg2dx = ifft(ifftshift(1j * (2*np.pi/L) * k * fftshift(fft(g**2)))).real
-    u = g - 3 * dg2dx * dt #Euler 1st order
-    if (i%int((etapes/10))==0):
-        print(int(i/(etapes/10)),'...')#to print a kindo loading bar
-    
-    
-    
-plt.plot(x,u)
-plt.show()            
+    dg2dx = ifft(ifftshift(1j * (2 * np.pi / L) * k * fftshift(fft(g ** 2)))).real
+    u = g - 3 * dg2dx * dt
+
+    # Store numerical and analytical solutions at each time step
+    numerical_solution[i] = u
+
+    # Compute the analytical solution for the linear combination of solitons
+    analytical_solution[i] = (
+        (c1 / 2)
+        * np.power(np.cosh((math.sqrt(c1) / 2) * ((x - a1 * L - c1* i * dt))), -2)
+        + (c2 / 2)
+        * np.power(np.cosh((math.sqrt(c2) / 2) * ((x - a2 * L - c2* i * dt))), -2)
+    )
+
+
+# Plot space-time plot for numerical and analytical solutions
+plt.figure(figsize=(10, 6))
+plt.subplot(1, 2, 1)
+plt.imshow(numerical_solution.T, aspect="auto", origin="lower", cmap="hot",
+           extent=[0, t, 0, L], vmin=0, vmax=max(c1/2,c2/2))
+plt.colorbar(label="Numerical Solution")
+plt.xlabel("Time")
+plt.ylabel("Space")
+plt.title("Numerical Solution")
+
+plt.subplot(1, 2, 2)
+plt.imshow(analytical_solution.T, aspect="auto", origin="lower", cmap="hot",
+           extent=[0, t, 0, L], vmin=0, vmax=max(c1/2,c2/2))
+plt.colorbar(label="Analytical Solution")
+plt.xlabel("Time")
+plt.ylabel("Space")
+plt.title("Analytical Solution (Linear Combination)")
+
+
+plt.tight_layout()
+plt.show()
 
 
 
 
 
-"Questions : - prq np.real ? - Euler 1st order sufficient ? - How is it made to be periodic ?"
+
+
+#comparaison solution numérique et analytique 
+#By selecting a time range where the solitons have not interacted significantly,
+# we can better assess the accuracy of the numerical solution compared to the analytical 
+#solution  allows us to focus on a regime where the linear combination of solitons is a valid
+# approximation.
+
+
+
+
+
+#we can choose a range of time steps in the middle of the simulation where the solitons have not interacted significantly.
+#we compute a measure of the difference between them, chosen the maximum absolute difference as a method. 
+
+
+#compute an average difference of the numerical and analytical solutions(we compare on the point that are non zero)
+def average_difference(list1, list2):
+    diffs=0
+    count=0
+    for i in range(len(list1)):
+        for j in range(len(list1[0])):
+            if list1[i][j]!=0 or list2[i][j]!=0:
+                diffs+=abs(list1[i][j] - list2[i][j]) 
+                count+=1
+    return diffs/count
+
+# Choose the time range for comparison
+start_time = 1
+end_time = int(etapes/10)
+
+# Extract the corresponding solutions for the chosen time range
+numerical_range = numerical_solution[start_time:end_time]
+analytical_range = analytical_solution[start_time:end_time]
+
+# Compute the average difference, in %
+diff=(average_difference(numerical_range, analytical_range)/max(c1/2,c2/2))*100
+
+print("Maximum Absolute Difference in %:", diff)
+
+
+# In the Korteweg-de Vries (KdV) equation, solitons are solitary waves that propagate without 
+#changing their shape due to a balance between nonlinearity and dispersion.
+# When two solitons interact, their shapes can change due to nonlinear interactions,
+# leading to complex dynamics
