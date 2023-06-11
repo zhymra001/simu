@@ -149,6 +149,10 @@ for _ in range(num_trials):
     distances.append(distance)
 
 # Compute the average distance ratio
-avg_distance =(np.mean(distances)/epsilon)/tmax
+avg_distance =(math.log(np.mean(distances)/epsilon))/tmax
 print("lyapunov:",avg_distance)
 
+
+
+
+        #not used : colors = ["red",'blue','yellow',"purple",'brown','pink',"green"]
