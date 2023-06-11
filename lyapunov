@@ -1,0 +1,154 @@
+import math
+import tkinter as tk
+import numpy as np
+import matplotlib.pyplot as plt
+
+tmax=512
+class DoublePendulum:
+    def __init__(self,  length1, length2, angle1, angle2, p1, p2, gravity,m1,m2,dt):
+        
+
+        self.WINDOWSIZE=700
+        color="red"
+        x=self.WINDOWSIZE/2
+        y=self.WINDOWSIZE/2
+        # Set initial position and velocity of pendulum
+        self.origin = (x, y)
+        self.angle1 = math.radians(angle1)
+        self.angle2 = math.radians(angle2)
+        self.p1 = p1 
+        self.p2 = p2
+        self.length1 = length1
+        self.length2 = length2
+        self.gravity = gravity
+        self.m1 = m1
+        self.m2 = m2
+        self.dt=dt
+        #list of the energy through time
+        self.E=[]
+        self.E0=1
+        #each time the sim is updated, tic+=1
+        self.tic=0
+        
+        # Calculate initial position of pendulum
+        self.position1 = (x + length1 * math.sin(self.angle1), y - length1 * math.cos(self.angle1))
+        self.position2 = (self.position1[0] + length2 * math.sin(self.angle2), self.position1[1] - length2 * math.cos(self.angle2))
+        
+    def animate(self):
+        # Calculate the new positions of the pendulum arms and bobs
+        # based on the current positions, velocities, and gravity
+        current_state = [self.angle1, self.p1, self.angle2, self.p2]
+        #F_A is just here to make the code simpler using those variables
+        F_A = lambda y1: [(y1[1] * y1[3] * math.sin(y1[0] - y1[2])) / (self.length1 * self.length2 * (self.m1 + self.m2 * math.sin(y1[0] - y1[2])**2)),
+                (1 / (2 * self.length1**2 * self.length2**2 * (self.m1 + self.m2 * math.sin(y1[0] - y1[2])**2)**2)) * ((y1[1]**2 * self.m2 * self.length2**2) - (2 * y1[1] * y1[3] * self.m2 * self.length1 * self.length2 * math.cos(y1[0] - y1[2])) + (y1[3]**2 * (self.m1 + self.m2) * self.length1**2)) * math.sin(2 * (y1[0] - y1[2]))]
+
+        
+        F = lambda y2: [(y2[1] * self.length2 - y2[3] * self.length1 * math.cos(y2[0] - y2[2])) / (self.length1**2 * self.length2 * (self.m1 + self.m2 * math.sin(y2[0] - y2[2])**2)),
+                -((self.m1 + self.m2) * self.gravity * self.length1 * math.sin(y2[0])) - A_1 + A_2,
+                (y2[3] * (self.m1 + self.m2) * self.length1 - y2[1] * self.m2 * self.length2 * math.cos(y2[0] - y2[2])) / (self.m2 * self.length1 * self.length2**2 * (self.m1 + self.m2 * math.sin(y2[0] - y2[2])**2)),
+                -(self.m2 * self.gravity * self.length2 * math.sin(y2[2])) + A_1 - A_2]
+        
+        
+        A_1,A_2=F_A(current_state)        
+        Y1 = [self.dt * x for x in F(current_state)]
+        A_1,A_2=F_A(np.array(current_state)+np.array([0.5 * f_i for f_i in Y1]))
+        Y2=[self.dt * x for x in F(np.array(current_state)+np.array([0.5 * f_i for f_i in Y1]))]
+        A_1,A_2=F_A(np.array(current_state)+np.array([0.5 * f_i for f_i in Y2]))
+        Y3=[self.dt * x for x in F(np.array(current_state)+np.array([0.5 * f_i for f_i in Y2]))]
+        A_1,A_2=F_A(np.array(current_state)+np.array(Y3))
+        Y4=[self.dt * x for x in F(np.array(current_state)+(Y3))]
+        Y=(np.array(Y1)+np.array([2 * x for x in Y2])+np.array([2 * x for x in Y3])+np.array(Y4))
+        [self.angle1, self.p1, self.angle2, self.p2] = np.array(current_state) + np.array([(1/6) * x for x in Y])
+        
+        self.position1 = (self.origin[0] + self.length1 * math.sin(self.angle1), self.origin[1] - self.length1 * math.cos(self.angle1))
+        self.position2 = (self.position1[0] + self.length2 * math.sin(self.angle2),self.position1[1] - self.length2 * math.cos(self.angle2))
+
+
+        self.calculate_energy()
+        self.tic+=1
+        if self.tic<tmax:
+            self.animate()
+        
+        
+
+        
+
+    def calculate_energy(self):
+        #the calculus necessary to plot the energy in real time
+        
+
+        # Calculate the y positions 
+        y1 = self.position1[1]
+        y2 = self.position2[1]
+        
+        #calculate omegas, the angles derivative
+        current_state = [self.angle1, self.p1, self.angle2, self.p2]
+        Fh = lambda y: [(y[1] * self.length2 - y[3] * self.length1 * math.cos(y[0] - y[2])) / (self.length1**2 * self.length2 * (self.m1 + self.m2 * math.sin(y[0] - y[2])**2)),
+                (y[3] * (self.m1 + self.m2) * self.length1 - y[1] * self.m2 * self.length2 * math.cos(y[0] - y[2])) / (self.m2 * self.length1 * self.length2**2 * (self.m1 + self.m2 * math.sin(y[0] - y[2])**2))]
+        [omega1,omega2]=Fh(current_state)
+        
+        #calculate velocities of the masses
+        vx1 = self.length1 * omega1 * np.cos(self.angle1)
+        vy1 = self.length1 * omega1 * np.sin(self.angle1)
+        vx2 = vx1 + self.length2 * omega2 * np.cos(self.angle2)
+        vy2 = vy1 + self.length2 * omega2 * np.sin(self.angle2)
+        
+        # Calculate the kinetic energy of each mass
+        #give the same result: K=0.5*self.m1*(self.length1**2)*(omega1**2)+0.5*self.m2*((self.length1**2)*(omega1**2)+(self.length2**2)*(omega2**2)+2*self.length1*self.length2*omega1*omega2*math.cos(self.angle1-self.angle2))
+        K1 = 0.5 * self.m1 * (vx1**2 + vy1**2)
+        K2 = 0.5 * self.m2 * (vx2**2 + vy2**2)
+        
+        # Calculate the potential energy of each mass
+        U1 = self.m1 * self.gravity * y1
+        U2 = self.m2 * self.gravity * y2
+        
+        # Add the kinetic and potential energy for each mass to get the total energy
+        E = K1+K2+ U1 + U2
+        
+        if (self.tic<=2):
+            self.E0=E
+        #add the calculated energy divided by the initial energy 
+        self.E.append(E/self.E0)
+    
+    def run(self):
+        # Start the main loop of TKinter
+        self.animate()
+        return [self.E,np.rad2deg(self.angle1)%360, self.p1, np.rad2deg(self.angle2)%360, self.p2]
+
+# Create a DoublePendulum object and start the animation
+length1=150
+length2=150
+gravity=9.81
+m1=1 
+m2=1 
+dt=0.1
+
+angle1=10
+angle2=10
+p1=0
+p2=0
+initial_state=[angle1,p1,angle2,p2]
+
+r=DoublePendulum(length1, length2, angle1, angle2, p1, p2, gravity, m1, m2, dt).run()
+endvalues=r[1:]
+
+distances=[]
+num_trials = 50  # number of trials for averaging
+epsilon =0.00000001
+for _ in range(num_trials):
+    # Perturb the initial conditions
+    initial_perturbed = [x + np.random.uniform(-epsilon, epsilon) for x in initial_state]
+    angle1, p1, angle2, p2 = initial_perturbed
+
+    # # Run the simulation
+    r=DoublePendulum(length1, length2, angle1, angle2, p1, p2, gravity, m1, m2, dt).run()
+    pertubedvalues=r[1:]
+
+    # Calculate the distance between the original and perturbed trajectories
+    distance = np.linalg.norm(np.array(endvalues) - np.array(pertubedvalues))
+    distances.append(distance)
+
+# Compute the average distance ratio
+avg_distance =(np.mean(distances)/epsilon)/tmax
+print("lyapunov:",avg_distance)
+
